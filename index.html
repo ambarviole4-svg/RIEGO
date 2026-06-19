@@ -84,17 +84,6 @@
             gap: 6px;
         }
 
-        label i {
-            background: #cdddea;
-            width: 28px;
-            height: 28px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 30px;
-            color: #2c5a7a;
-        }
-
         select, input, textarea {
             padding: 12px 16px;
             border-radius: 28px;
@@ -250,6 +239,13 @@
             background-color: #fff5f5 !important;
         }
 
+        .info-ayuda {
+            font-size: 0.7rem;
+            color: #5a7a9a;
+            margin-top: 2px;
+            padding-left: 16px;
+        }
+
         @media (max-width: 680px) {
             .form-body { padding: 1.5rem; }
             .producto-fila { flex-direction: column; }
@@ -290,6 +286,7 @@
                 <select id="fincaSelect" required>
                     <option value="">-- SELECCIONE LOCALIDAD --</option>
                 </select>
+                <input type="hidden" id="localidadHidden" value="">
             </div>
 
             <!-- FECHA -->
@@ -301,11 +298,12 @@
             <!-- HECTAREAS -->
             <div class="form-group">
                 <label>HECTAREAS DE LA FINCA</label>
-                <input type="text" id="hectareas" placeholder="EJ: 12.75" required>
-                <div id="hectareasError" class="info-note" style="color:#dc6b4a; display:none;">ERROR: USE PUNTO (.) NO COMA (,)</div>
+                <input type="text" id="hectareas" placeholder="EJ: 12,75" required>
+                <div class="info-ayuda">Use coma (,) como separador decimal</div>
+                <div id="hectareasError" class="info-note" style="color:#dc6b4a; display:none;">ERROR: Ingrese un número válido</div>
             </div>
 
-            <!-- TIPO DE PRODUCTO / OPCION PRINCIPAL -->
+            <!-- TIPO DE PRODUCTO -->
             <div class="form-group">
                 <label>TIPO DE PRODUCTO</label>
                 <select id="tipoProductoSelect" required>
@@ -317,44 +315,46 @@
                 </select>
             </div>
 
-            <!-- Contenedor para productos dinamicos -->
+            <!-- PRODUCTOS DINAMICOS -->
             <div id="productosDinamicosContainer" class="hidden">
                 <div class="productos-dinamicos">
                     <label>PRODUCTOS APLICADOS</label>
                     <div id="productosList"></div>
                     <button type="button" id="agregarProductoBtn" class="btn-secondary">AGREGAR OTRO PRODUCTO + DOSIS</button>
-                    <div class="info-note" style="margin-top:8px; background:#fff3cd; padding:6px; border-radius:16px;">
+                    <div class="info-note" style="margin-top:8px; background:#c9daec; padding:6px; border-radius:16px;">
                     </div>
                 </div>
             </div>
 
             <!-- CAMPOS AMBIENTALES -->
-            <div class="campos-climaticos">
+            <div class="campos-climaticos" style="margin-top: 1.5rem;">
                 <h3>PARAMETROS AMBIENTALES Y DE RIEGO</h3>
+                <div class="info-ayuda">Use coma (,) como separador decimal</div>
                 <div class="row-2cols">
                     <div class="form-group" style="margin-bottom: 0.8rem;">
-                        <label>C.E</label>
-                        <input type="text" id="ceClimatico" placeholder="EJ: 1.35" required>
+                        <label>C.E.</label>
+                        <input type="text" id="ceClimatico" placeholder="Ejemplo: 1,74" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
-                        <label>P.H</label>
-                        <input type="text" id="ph" placeholder="EJ: 5.3" required>
+                        <label>P.H.</label>
+                        <input type="text" id="ph" placeholder="Ejemplo: 5,36" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
                         <label>JOULES (RADIACION)</label>
-                        <input type="text" id="joules" placeholder="EJ: 1374" required>
+                        <input type="text" id="joules" placeholder="Ejemplo: 1374" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
                         <label>M3 TOTAL (METROS CUBICOS)</label>
-                        <input type="text" id="m3Total" placeholder="EJ: 1462" required>
+                        <input type="text" id="m3Total" placeholder="Ejemplo: 476" required>
+                        <div class="info-ayuda">El valor ingresado es en m3</div>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
                         <label>TEMP_MINIMA (°C)</label>
-                        <input type="text" id="tempMin" placeholder="EJ: 9" required>
+                        <input type="text" id="tempMin" placeholder="Ejemplo: 3,3" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
                         <label>TEMP_MAX (°C)</label>
-                        <input type="text" id="tempMax" placeholder="EJ: 17" required>
+                        <input type="text" id="tempMax" placeholder="Ejemplo: 22,3" required>
                     </div>
                     <div class="form-group" style="margin-bottom: 0.8rem;">
                         <label>PLUVIOSIDAD (MM)</label>
@@ -365,13 +365,13 @@
 
             <button type="submit" id="btnSubmit" class="btn-primary">GUARDAR</button>
             <div id="mensajeRespuesta" class="mensaje-estado"></div>
-            <div class="info-note"></div>
         </form>
     </div>
 </div>
 
 <script>
-    // LISTA DE LOCALIDADES
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykyijQ6XpCBNSI3OEQbTqu6__5ptgesb6-l6LG7C7YwQs9jd8q8UGo-ly_MCS7eMIU/exec";
+
     const todasLasFincas = [
         "ARCOFLOR", "DALI", "ECUANROS 1", "ECUANROS 2", "TESSA 1-2",
         "TESSA 3", "TESSA 4", "PONTE TRESA", "PICASSO", "ROSAS DEL MONTE", "SOLERA"
@@ -384,118 +384,88 @@
         return [];
     }
 
-    // LISTA DE PRODUCTOS ACTUALIZADA
     const productosMaster = [
-        "BARRIER",
-        "BIOACTIVE",
-        "BUFALO",
-        "ENCAPSALT",
-        "IRON",
-        "MOLIBDATO DE AMONIO",
-        "NITRATO DE CALCIO",
-        "NITRATO DE POTASIO",
-        "NITROPLUS",
-        "PROMESOL",
-        "RADIXCAL",
-        "RAIZOFOS",
-        "SOIL CLEAN",
-        "SOLUM",
-        "SULFATO DE MAGNESIO",
-        "VITALEM CA",
-        "YURA CALCIO"
+        "BARRIER", "BIOACTIVE", "BUFALO", "ENCAPSALT", "IRON",
+        "MOLIBDATO DE AMONIO", "NITRATO DE CALCIO", "NITRATO DE POTASIO",
+        "NITROPLUS", "PROMESOL", "RADIXCAL", "RAIZOFOS", "SOIL CLEAN",
+        "SOLUM", "SULFATO DE MAGNESIO", "VITALEM CA", "YURA CALCIO"
     ].sort();
 
-    // LISTA DE UNIDADES DE MEDIDA
     const unidadesMedida = [
-        "kg", "kg/ha", "g", "g/ha", "mg", "mg/L", "t/ha",
-        "L", "L/ha", "mL", "mL/L", "m³", "m³/ha", "gal", "gal/ha",
-        "kg/m²", "L/m²", "L/planta", "L/100L", "ppm", "%", "cc/L", "meq/L"
+        "kg", "g", "mg", "L", "mL", "m³", "gal",, "ppm", "%"
     ];
 
     // DOM
-    const especieSelect = document.getElementById('especieSelect');
-    const fincaSelect = document.getElementById('fincaSelect');
-    const fechaRiego = document.getElementById('fechaRiego');
-    const hectareasInput = document.getElementById('hectareas');
-    const hectareasError = document.getElementById('hectareasError');
-    const tipoProductoSelect = document.getElementById('tipoProductoSelect');
+    const especieSelect       = document.getElementById('especieSelect');
+    const fincaSelect         = document.getElementById('fincaSelect');
+    const localidadHidden     = document.getElementById('localidadHidden');
+    const fechaRiego          = document.getElementById('fechaRiego');
+    const hectareasInput      = document.getElementById('hectareas');
+    const hectareasError      = document.getElementById('hectareasError');
+    const tipoProductoSelect  = document.getElementById('tipoProductoSelect');
     const productosDinamicosContainer = document.getElementById('productosDinamicosContainer');
-    const productosListDiv = document.getElementById('productosList');
-    const agregarProductoBtn = document.getElementById('agregarProductoBtn');
-    const form = document.getElementById('formRiego');
-    const btnSubmit = document.getElementById('btnSubmit');
-    const mensajeDiv = document.getElementById('mensajeRespuesta');
-
-    // Campos
-    const ceClimatico = document.getElementById('ceClimatico');
-    const ph = document.getElementById('ph');
-    const joules = document.getElementById('joules');
-    const m3Total = document.getElementById('m3Total');
-    const tempMin = document.getElementById('tempMin');
-    const tempMax = document.getElementById('tempMax');
-    const pluviosidad = document.getElementById('pluviosidad');
+    const productosListDiv    = document.getElementById('productosList');
+    const agregarProductoBtn  = document.getElementById('agregarProductoBtn');
+    const form                = document.getElementById('formRiego');
+    const btnSubmit           = document.getElementById('btnSubmit');
+    const mensajeDiv          = document.getElementById('mensajeRespuesta');
+    const ceClimatico         = document.getElementById('ceClimatico');
+    const ph                  = document.getElementById('ph');
+    const joules              = document.getElementById('joules');
+    const m3Total             = document.getElementById('m3Total');
+    const tempMin             = document.getElementById('tempMin');
+    const tempMax             = document.getElementById('tempMax');
+    const pluviosidad         = document.getElementById('pluviosidad');
 
     let filaCounter = 0;
 
-    // FUNCION PARA LIMPIAR COMPLETAMENTE EL FORMULARIO
-    function limpiarFormulario() {
-        // Resetear selects
-        especieSelect.value = "";
-        fincaSelect.innerHTML = '<option value="">-- SELECCIONE LOCALIDAD --</option>';
-        tipoProductoSelect.value = "";
-        
-        // Resetear inputs
-        fechaRiego.value = "";
-        hectareasInput.value = "";
-        ceClimatico.value = "";
-        ph.value = "";
-        joules.value = "";
-        m3Total.value = "";
-        tempMin.value = "";
-        tempMax.value = "";
-        pluviosidad.value = "";
-        
-        // Limpiar productos dinamicos
-        productosListDiv.innerHTML = "";
-        productosDinamicosContainer.classList.add('hidden');
-        
-        // Limpiar errores
-        hectareasError.style.display = 'none';
-        hectareasInput.classList.remove('error-border');
-        
-        // Reiniciar fecha a hoy
-        inicializarFecha();
-        
-        // Reiniciar contador de filas
-        filaCounter = 0;
+    // ── VALIDACION NUMERICA ──────────────────────────────────────────
+    function validarNumero(valor) {
+        if (!valor || valor.trim() === "") return false;
+        return /^\d+(,\d+)?$/.test(valor.trim());
     }
 
-    // FUNCION PARA CONVERTIR COMA A PUNTO Y VALIDAR SOLO NUMEROS
-    function formatearNumeroConPunto(inputElement) {
-        inputElement.addEventListener('input', function(e) {
-            let val = e.target.value;
-            val = val.replace(',', '.');
-            val = val.replace(/[^0-9.]/g, '');
-            const partes = val.split('.');
-            if (partes.length > 2) val = partes[0] + '.' + partes.slice(1).join('');
-            e.target.value = val;
-        });
-    }
+ function formatearInputNumerico(inputElement, permitirNegativo) {
+    inputElement.addEventListener('input', function(e) {
+        let val = e.target.value;
+        const esNegativo = permitirNegativo && val.startsWith('-');
+        
+        val = val.replace(/[^0-9,]/g, '');
+        const partes = val.split(',');
+        if (partes.length > 2) val = partes[0] + ',' + partes.slice(1).join('');
+        if (esNegativo) val = '-' + val;
+        
+        e.target.value = val;
+    });
+}
 
+    // ── FINCAS ───────────────────────────────────────────────────────
     function actualizarFincas() {
         const especie = especieSelect.value;
         fincaSelect.innerHTML = '<option value="">-- SELECCIONE LOCALIDAD --</option>';
+        localidadHidden.value = "";
+
         if (!especie) return;
+
         const fincas = obtenerFincasPorEspecie(especie);
-        fincas.forEach(f => {
+        fincas.forEach(function(f) {
             const opt = document.createElement('option');
             opt.value = f;
             opt.textContent = f;
             fincaSelect.appendChild(opt);
         });
-        if (fincas.length === 1) fincaSelect.value = fincas[0];
+
+        if (fincas.length === 1) {
+            fincaSelect.value = fincas[0];
+            localidadHidden.value = fincas[0];
+        }
     }
 
+    fincaSelect.addEventListener('change', function() {
+        localidadHidden.value = this.value;
+    });
+
+    // ── TIPO DE PRODUCTO ─────────────────────────────────────────────
     function handleTipoProductoChange() {
         const tipo = tipoProductoSelect.value;
         productosDinamicosContainer.classList.add('hidden');
@@ -505,9 +475,14 @@
         }
     }
 
-    function agregarFilaProducto(productoSeleccionado = "", dosisNumero = "", unidadSeleccionada = "kg") {
-        const filaId = `fila_${Date.now()}_${filaCounter++}`;
-        const divFila = document.createElement('div');
+    // ── PRODUCTOS DINAMICOS ──────────────────────────────────────────
+    function agregarFilaProducto(productoSeleccionado, dosisNumero, unidadSeleccionada) {
+        productoSeleccionado  = productoSeleccionado  || "";
+        dosisNumero           = dosisNumero           || "";
+        unidadSeleccionada    = unidadSeleccionada    || "kg";
+
+        const filaId   = 'fila_' + Date.now() + '_' + filaCounter++;
+        const divFila  = document.createElement('div');
         divFila.className = 'producto-fila';
         divFila.id = filaId;
 
@@ -517,30 +492,28 @@
         inputProducto.className = 'producto-input';
         inputProducto.value = productoSeleccionado;
         inputProducto.required = true;
-        inputProducto.setAttribute('list', `datalist_productos_${filaId}`);
-        
+        inputProducto.setAttribute('list', 'datalist_' + filaId);
+
         const datalist = document.createElement('datalist');
-        datalist.id = `datalist_productos_${filaId}`;
-        productosMaster.forEach(prod => {
+        datalist.id = 'datalist_' + filaId;
+        productosMaster.forEach(function(prod) {
             const option = document.createElement('option');
             option.value = prod;
-            option.textContent = prod;
             datalist.appendChild(option);
         });
-        
+
         const inputDosisNumero = document.createElement('input');
         inputDosisNumero.type = 'text';
-        inputDosisNumero.placeholder = 'DOSIS (NUMERO)';
+        inputDosisNumero.placeholder = 'DOSIS';
         inputDosisNumero.className = 'dosis-numero';
         inputDosisNumero.value = dosisNumero;
         inputDosisNumero.required = true;
         inputDosisNumero.style.textAlign = "center";
-        
-        formatearNumeroConPunto(inputDosisNumero);
-        
+        formatearInputNumerico(inputDosisNumero);
+
         const selectUnidad = document.createElement('select');
         selectUnidad.className = 'dosis-unidad';
-        unidadesMedida.forEach(unidad => {
+        unidadesMedida.forEach(function(unidad) {
             const option = document.createElement('option');
             option.value = unidad;
             option.textContent = unidad;
@@ -551,11 +524,14 @@
         const btnEliminar = document.createElement('button');
         btnEliminar.textContent = 'ELIMINAR';
         btnEliminar.type = 'button';
-        btnEliminar.style.background = '#c95a5a';
-        btnEliminar.onclick = () => {
+        btnEliminar.onclick = function() {
             divFila.remove();
             if (productosListDiv.children.length === 0) agregarFilaProducto();
         };
+
+        inputProducto.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
 
         divFila.appendChild(inputProducto);
         divFila.appendChild(datalist);
@@ -563,240 +539,225 @@
         divFila.appendChild(selectUnidad);
         divFila.appendChild(btnEliminar);
         productosListDiv.appendChild(divFila);
-        
-        inputProducto.addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
     }
 
-    function obtenerListaProductos() {
+    function obtenerProductosConcatenados() {
         const filas = document.querySelectorAll('#productosList .producto-fila');
         const productos = [];
-        for (let fila of filas) {
-            const inputProd = fila.querySelector('.producto-input');
-            const dosisNumero = fila.querySelector('.dosis-numero');
-            const selectUnidad = fila.querySelector('.dosis-unidad');
-            if (inputProd && inputProd.value.trim() && dosisNumero && dosisNumero.value.trim()) {
-                const dosisCompleta = `${dosisNumero.value.trim()} ${selectUnidad.value}`;
-                productos.push({
-                    producto: inputProd.value.trim().toUpperCase(),
-                    dosis: dosisCompleta
-                });
+        const dosis = [];
+        filas.forEach(function(fila) {
+            const inputProd   = fila.querySelector('.producto-input');
+            const dosisNum    = fila.querySelector('.dosis-numero');
+            const selectUnid  = fila.querySelector('.dosis-unidad');
+            if (inputProd && inputProd.value.trim() && dosisNum && dosisNum.value.trim()) {
+                productos.push(inputProd.value.trim().toUpperCase());
+                dosis.push(dosisNum.value.trim() + ' ' + selectUnid.value);
             }
-        }
-        return productos;
+        });
+        return { productos: productos.join('; '), dosis: dosis.join('; ') };
     }
 
-    function esNumeroValido(valor) {
-        if (!valor || valor.trim() === "") return false;
-        const regex = /^-?\d+(\.\d+)?$/;
-        if (!regex.test(valor)) return false;
-        return !isNaN(parseFloat(valor));
-    }
-
-    function validarHectareasFormato(valor) {
-        if (valor.includes(',')) return false;
-        const regex = /^\d+(\.\d{1,2})?$/;
-        return regex.test(valor) && parseFloat(valor) > 0;
-    }
-
+    // ── ENVIO A GOOGLE SHEETS ────────────────────────────────────────
     async function enviarGoogleSheets(fila) {
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwRvSzxJMQ7cN59BmkX5me_16OOoc64WfOCcV1l-eq4vWE7mjB7jnspFPKkTbJ1dU1g/exec";
         try {
-            await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams(fila)
-            });
-            return { ok: true };
+            const params = new URLSearchParams();
+            for (const [key, value] of Object.entries(fila)) {
+                params.append(key, value);
+            }
+
+            const url = GOOGLE_SCRIPT_URL + "?" + params.toString();
+            const response = await fetch(url, { method: 'GET' });
+
+            if (!response.ok) {
+                return { ok: false, msg: "Error HTTP: " + response.status };
+            }
+
+            const texto = await response.text();
+
+            let data;
+            try {
+                data = JSON.parse(texto);
+            } catch(parseErr) {
+                // Si no es JSON válido pero el fetch fue exitoso, asumir éxito
+                console.warn("Respuesta no JSON:", texto);
+                return { ok: true };
+            }
+
+            return data.resultado === "exito"
+                ? { ok: true }
+                : { ok: false, msg: data.mensaje || "Error desconocido" };
+
         } catch (e) {
+            console.error("Error al enviar:", e);
             return { ok: false, msg: e.message };
         }
     }
 
+    // ── MENSAJE ──────────────────────────────────────────────────────
     function mostrarMensaje(texto, tipo) {
         mensajeDiv.textContent = texto;
-        mensajeDiv.className = `mensaje-estado ${tipo}`;
+        mensajeDiv.className = 'mensaje-estado ' + tipo;
         mensajeDiv.style.display = 'block';
-        setTimeout(() => {
+        setTimeout(function() {
             mensajeDiv.style.display = 'none';
-        }, 3000);
+        }, 4500);
     }
 
-    form.addEventListener('submit', async (e) => {
+    // ── LIMPIAR ──────────────────────────────────────────────────────
+    function limpiarFormulario() {
+        especieSelect.value = "";
+        fincaSelect.innerHTML = '<option value="">-- SELECCIONE LOCALIDAD --</option>';
+        localidadHidden.value = "";
+        tipoProductoSelect.value = "";
+        hectareasInput.value = "";
+        ceClimatico.value = "";
+        ph.value = "";
+        joules.value = "";
+        m3Total.value = "";
+        tempMin.value = "";
+        tempMax.value = "";
+        pluviosidad.value = "";
+        productosListDiv.innerHTML = "";
+        productosDinamicosContainer.classList.add('hidden');
+        hectareasError.style.display = 'none';
+        hectareasInput.classList.remove('error-border');
+        inicializarFecha();
+        filaCounter = 0;
+    }
+
+    // ── SUBMIT ───────────────────────────────────────────────────────
+    form.addEventListener('submit', async function(e) {
         e.preventDefault();
         mensajeDiv.style.display = 'none';
-        
+
         const especie = especieSelect.value;
         if (!especie) return mostrarMensaje("SELECCIONE UNA ESPECIE.", "error");
-        
-        const localidad = fincaSelect.value;
+
+        const localidad = localidadHidden.value || fincaSelect.value;
         if (!localidad) return mostrarMensaje("SELECCIONE UNA LOCALIDAD.", "error");
-        
+
         const fecha = fechaRiego.value;
         if (!fecha) return mostrarMensaje("INGRESE FECHA DE RIEGO.", "error");
-        
-        let hectareasVal = hectareasInput.value.trim();
-        if (hectareasVal.includes(',')) {
+
+        const hectareasRaw = hectareasInput.value.trim();
+        if (!hectareasRaw) return mostrarMensaje("INGRESE LAS HECTAREAS.", "error");
+        if (!validarNumero(hectareasRaw)) {
             hectareasError.style.display = 'block';
             hectareasInput.classList.add('error-border');
-            return mostrarMensaje("ERROR: EN HECTAREAS USE PUNTO (.) NO COMA (,)", "error");
+            return mostrarMensaje("HECTAREAS INVALIDAS. Use coma (,) ej: 12,75", "error");
         }
         hectareasError.style.display = 'none';
         hectareasInput.classList.remove('error-border');
-        hectareasVal = hectareasVal.replace(',', '.');
-        if (!validarHectareasFormato(hectareasVal)) {
-            return mostrarMensaje("HECTAREAS INVALIDAS. USE SOLO NUMEROS Y PUNTO (EJ: 14.5)", "error");
-        }
-        
+
         const tipoAplicacion = tipoProductoSelect.value;
         if (!tipoAplicacion) return mostrarMensaje("SELECCIONE UN TIPO DE APLICACION.", "error");
-        
-        if (!esNumeroValido(ceClimatico.value)) return mostrarMensaje("C.E. DEBE SER UN NUMERO VALIDO (USE PUNTO)", "error");
-        if (!esNumeroValido(ph.value)) return mostrarMensaje("P.H. DEBE SER UN NUMERO VALIDO (USE PUNTO)", "error");
-        if (!esNumeroValido(joules.value)) return mostrarMensaje("JOULES DEBE SER UN NUMERO VALIDO (USE PUNTO)", "error");
-        if (!esNumeroValido(m3Total.value)) return mostrarMensaje("M3 TOTAL DEBE SER UN NUMERO VALIDO (USE PUNTO)", "error");
-        
-        const tempMinVal = parseFloat(tempMin.value);
-        if (isNaN(tempMinVal) || tempMinVal < -10 || tempMinVal > 20) {
-            return mostrarMensaje("TEMP MINIMA DEBE ESTAR ENTRE -10.0 Y 20.0", "error");
+
+        // Validaciones numericas
+        const campos = [
+            { id: 'ceClimatico',  nombre: 'C.E.',         val: ceClimatico.value.trim() },
+            { id: 'ph',           nombre: 'P.H.',          val: ph.value.trim() },
+            { id: 'joules',       nombre: 'JOULES',        val: joules.value.trim() },
+            { id: 'm3Total',      nombre: 'M3 TOTAL',      val: m3Total.value.trim() },
+            { id: 'tempMin',      nombre: 'TEMP MINIMA',   val: tempMin.value.trim() },
+            { id: 'tempMax',      nombre: 'TEMP MAXIMA',   val: tempMax.value.trim() },
+            { id: 'pluviosidad',  nombre: 'PLUVIOSIDAD',   val: pluviosidad.value.trim() }
+        ];
+
+        for (const campo of campos) {
+            if (!campo.val) return mostrarMensaje("INGRESE " + campo.nombre + ".", "error");
+            const valParaValidar = campo.id === 'tempMin' ? campo.val.replace('-', '') : campo.val;
+            if (!validarNumero(valParaValidar)) {
+                return mostrarMensaje(campo.nombre + " INVALIDO. Use coma (,).", "error");
+            }
         }
-        
-        const tempMaxVal = parseFloat(tempMax.value);
-        if (isNaN(tempMaxVal) || tempMaxVal < 10 || tempMaxVal > 50) {
-            return mostrarMensaje("TEMP MAX DEBE ESTAR ENTRE 10.0 Y 50.0", "error");
-        }
-        
-        if (!esNumeroValido(pluviosidad.value)) return mostrarMensaje("PLUVIOSIDAD DEBE SER UN NUMERO VALIDO (USE PUNTO)", "error");
-        
-        const datosBase = {
-            timestamp: new Date().toLocaleString("es-EC"),
-            especie: especie,
-            localidad: localidad,
-            fecha_riego: fecha,
-            hectareas: parseFloat(hectareasVal),
-            tipo_aplicacion: tipoAplicacion,
-            ce: ceClimatico.value.trim(),
-            ph: ph.value.trim(),
-            joules: joules.value.trim(),
-            m3_total: m3Total.value.trim(),
-            temp_min: tempMinVal,
-            temp_max: tempMaxVal,
-            pluviosidad_mm: pluviosidad.value.trim()
-        };
-        
-        btnSubmit.disabled = true;
-        btnSubmit.innerHTML = "GUARDANDO...";
-        
+
+        // Productos
+        let nombreProducto = "";
+        let dosisProducto  = "";
+
         if (tipoAplicacion === "OTRO_PRODUCTO") {
-            const productos = obtenerListaProductos();
-            if (productos.length === 0) {
-                btnSubmit.disabled = false;
-                btnSubmit.innerHTML = "GUARDAR";
+            const productosData = obtenerProductosConcatenados();
+            if (!productosData.productos) {
                 return mostrarMensaje("AGREGUE AL MENOS UN PRODUCTO CON SU DOSIS.", "error");
             }
-            
-            let exitos = 0;
-            let errores = 0;
-            
-            for (let prod of productos) {
-                const fila = {
-                    ...datosBase,
-                    producto: prod.producto,
-                    dosis: prod.dosis
-                };
-                const resultado = await enviarGoogleSheets(fila);
-                if (resultado.ok) {
-                    exitos++;
-                } else {
-                    errores++;
-                }
-            }
-            
-            if (errores === 0) {
-                mostrarMensaje("DATOS ENVIADOS CORRECTAMENTE", "success");
-                limpiarFormulario();  // LIMPIAR FORMULARIO DESPUES DE GUARDAR
-            } else {
-                mostrarMensaje(`PARCIAL: ${exitos} guardados, ${errores} errores.`, "error");
-            }
+            nombreProducto = productosData.productos;
+            dosisProducto  = productosData.dosis;
         } else {
-            let nombreProducto = "";
-            if (tipoAplicacion === "FORMULA_FERTILIZACION") nombreProducto = "FORMULA FERTILIZACION";
-            else if (tipoAplicacion === "NO_SE_RIEGA") nombreProducto = "NO SE RIEGA";
-            else if (tipoAplicacion === "AGUA_ACIDA") nombreProducto = "AGUA ACIDA";
-            
-            const fila = {
-                ...datosBase,
-                producto: nombreProducto,
-                dosis: ""
+            const etiquetas = {
+                "FORMULA_FERTILIZACION": "FORMULA FERTILIZACION",
+                "NO_SE_RIEGA":           "NO SE RIEGA",
+                "AGUA_ACIDA":            "AGUA ACIDA"
             };
-            const resultado = await enviarGoogleSheets(fila);
-            if (resultado.ok) {
-                mostrarMensaje("DATOS ENVIADOS CORRECTAMENTE", "success");
-                limpiarFormulario();  // LIMPIAR FORMULARIO DESPUES DE GUARDAR
-            } else {
-                mostrarMensaje(`ERROR: ${resultado.msg}`, "error");
-            }
+            nombreProducto = etiquetas[tipoAplicacion] || tipoAplicacion;
+            dosisProducto  = "";
         }
-        
+
+        const fila = {
+            timestamp:       new Date().toLocaleString("es-EC"),
+            especie:         especie,
+            localidad:       localidad,
+            fecha_riego:     fecha,
+            hectareas:       hectareasRaw,
+            tipo_aplicacion: tipoAplicacion,
+            ce:              ceClimatico.value.trim(),
+            ph:              ph.value.trim(),
+            joules:          joules.value.trim(),
+            m3_total:        m3Total.value.trim(),
+            temp_min:        tempMin.value.trim(),
+            temp_max:        tempMax.value.trim(),
+            pluviosidad_mm:  pluviosidad.value.trim(),
+            producto:        nombreProducto,
+            dosis:           dosisProducto
+        };
+
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "GUARDANDO...";
+
+        const resultado = await enviarGoogleSheets(fila);
+
+        if (resultado.ok) {
+            mostrarMensaje("DATOS ENVIADOS CORRECTAMENTE", "success");
+            limpiarFormulario();
+        } else {
+            mostrarMensaje("ERROR: " + resultado.msg, "error");
+        }
+
         btnSubmit.disabled = false;
-        btnSubmit.innerHTML = "GUARDAR";
+        btnSubmit.textContent = "GUARDAR";
     });
 
+    // ── INIT ─────────────────────────────────────────────────────────
     function inicializarFecha() {
-        const today = new Date();
-        fechaRiego.value = today.toISOString().split('T')[0];
+        fechaRiego.value = new Date().toISOString().split('T')[0];
     }
 
-    // APLICAR FORMATEO DE NUMERO CON PUNTO A TODOS LOS CAMPOS NUMERICOS
-    formatearNumeroConPunto(ceClimatico);
-    formatearNumeroConPunto(ph);
-    formatearNumeroConPunto(joules);
-    formatearNumeroConPunto(m3Total);
-    formatearNumeroConPunto(tempMin);
-    formatearNumeroConPunto(tempMax);
-    formatearNumeroConPunto(pluviosidad);
+    formatearInputNumerico(ceClimatico);
+    formatearInputNumerico(ph);
+    formatearInputNumerico(joules);
+    formatearInputNumerico(m3Total);
+    formatearInputNumerico(tempMin, true);
+    formatearInputNumerico(tempMax);
+    formatearInputNumerico(pluviosidad);
+    formatearInputNumerico(hectareasInput);
 
     especieSelect.addEventListener('change', actualizarFincas);
     tipoProductoSelect.addEventListener('change', handleTipoProductoChange);
-    agregarProductoBtn.addEventListener('click', () => agregarFilaProducto());
+    agregarProductoBtn.addEventListener('click', function() { agregarFilaProducto(); });
 
-    hectareasInput.addEventListener('input', (e) => {
-        let val = e.target.value;
-        if (val.includes(',')) {
+    hectareasInput.addEventListener('input', function() {
+        if (this.value && !validarNumero(this.value)) {
             hectareasError.style.display = 'block';
-            hectareasInput.classList.add('error-border');
+            this.classList.add('error-border');
         } else {
             hectareasError.style.display = 'none';
-            hectareasInput.classList.remove('error-border');
-            val = val.replace(/[^0-9.]/g, '');
-            const partes = val.split('.');
-            if (partes.length > 2) val = partes[0] + '.' + partes.slice(1).join('');
-            e.target.value = val;
+            this.classList.remove('error-border');
         }
     });
 
-    const inputsTexto = document.querySelectorAll('input[type="text"]');
-    inputsTexto.forEach(inp => {
-        if (inp.id !== 'hectareas' && !inp.classList.contains('dosis-numero')) {
-            inp.addEventListener('input', function() { this.value = this.value.toUpperCase(); });
-        }
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', function() {
         inicializarFecha();
         actualizarFincas();
         handleTipoProductoChange();
-        
-        const infoMsg = document.createElement('div');
-        infoMsg.className = "info-note";
-        infoMsg.style.marginTop = "12px";
-        infoMsg.style.background = "#e9f0f5";
-        infoMsg.style.padding = "8px";
-        infoMsg.style.borderRadius = "32px";
-        infoMsg.innerHTML = "";
-        form.appendChild(infoMsg);
     });
 </script>
 </body>
