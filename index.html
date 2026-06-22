@@ -246,6 +246,19 @@
             padding-left: 16px;
         }
 
+        /* Barra de progreso para envíos múltiples */
+        .progreso-envio {
+            margin-top: 1rem;
+            display: none;
+            background: #dce8f4;
+            border-radius: 40px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            color: #2c5a7a;
+            text-align: center;
+            font-weight: 500;
+        }
+
         @media (max-width: 680px) {
             .form-body { padding: 1.5rem; }
             .producto-fila { flex-direction: column; }
@@ -319,10 +332,10 @@
             <div id="productosDinamicosContainer" class="hidden">
                 <div class="productos-dinamicos">
                     <label>PRODUCTOS APLICADOS</label>
+                    <div class="info-note" style="background:#dce8f4; padding:6px 12px; border-radius:16px; margin-bottom:10px; color:#2c5a7a;">
+                    </div>
                     <div id="productosList"></div>
                     <button type="button" id="agregarProductoBtn" class="btn-secondary">AGREGAR OTRO PRODUCTO + DOSIS</button>
-                    <div class="info-note" style="margin-top:8px; background:#c9daec; padding:6px; border-radius:16px;">
-                    </div>
                 </div>
             </div>
 
@@ -364,6 +377,7 @@
             </div>
 
             <button type="submit" id="btnSubmit" class="btn-primary">GUARDAR</button>
+            <div id="progresoEnvio" class="progreso-envio"></div>
             <div id="mensajeRespuesta" class="mensaje-estado"></div>
         </form>
     </div>
@@ -385,15 +399,39 @@
     }
 
     const productosMaster = [
-        "BARRIER", "BIOACTIVE", "BUFALO", "ENCAPSALT", "IRON",
-        "MOLIBDATO DE AMONIO", "NITRATO DE CALCIO", "NITRATO DE POTASIO",
-        "NITROPLUS", "PROMESOL", "RADIXCAL", "RAIZOFOS", "SOIL CLEAN",
-        "SOLUM", "SULFATO DE MAGNESIO", "VITALEM CA", "YURA CALCIO"
-    ].sort();
-
-    const unidadesMedida = [
-        "kg", "g", "mg", "L", "mL", "m³", "gal",, "ppm", "%"
+        "NITRATO DE CALCIO",
+        "MANVERT MOVILI",
+        "NITRATO DE CALCIO LIQUIDO",
+        "NITRATO DE AMONIO",
+        "FE-EDDHA",
+        "FE-EDTA",
+        "FE-DTPA",
+        "MN-EDTA",
+        "ZN-EDTA",
+        "CU-EDTA",
+        "NITRATO DE POTASIO",
+        "NITRATO DE MAGNESIO",
+        "FOSFATO MONOAMONICO",
+        "FOSFATO MONOPOTASICO",
+        "SULFATO DE AMONIO",
+        "SULFATO DE MAGNESIO",
+        "SULFATO DE POTASIO",
+        "UREA VERDE",
+        "URFOS",
+        "BORAX",
+        "SULFATO DE ZINC",
+        "SULFATO DE COBRE",
+        "MOLIBDATO DE AMONIO",
+        "FYTONIC",
+        "X-TEND",
+        "ACIDO BORICO",
+        "ACIDO FOSFORICO",
+        "ACIDO NITRICO",
+        "LOWER 7",
+        "ACIDO SULFURICO"
     ];
+
+    const unidadesMedida = ["kg", "g", "mg", "L", "mL", "m³", "gal", "ppm", "%"];
 
     // DOM
     const especieSelect       = document.getElementById('especieSelect');
@@ -409,6 +447,7 @@
     const form                = document.getElementById('formRiego');
     const btnSubmit           = document.getElementById('btnSubmit');
     const mensajeDiv          = document.getElementById('mensajeRespuesta');
+    const progresoDiv         = document.getElementById('progresoEnvio');
     const ceClimatico         = document.getElementById('ceClimatico');
     const ph                  = document.getElementById('ph');
     const joules              = document.getElementById('joules');
@@ -425,28 +464,24 @@
         return /^\d+(,\d+)?$/.test(valor.trim());
     }
 
- function formatearInputNumerico(inputElement, permitirNegativo) {
-    inputElement.addEventListener('input', function(e) {
-        let val = e.target.value;
-        const esNegativo = permitirNegativo && val.startsWith('-');
-        
-        val = val.replace(/[^0-9,]/g, '');
-        const partes = val.split(',');
-        if (partes.length > 2) val = partes[0] + ',' + partes.slice(1).join('');
-        if (esNegativo) val = '-' + val;
-        
-        e.target.value = val;
-    });
-}
+    function formatearInputNumerico(inputElement, permitirNegativo) {
+        inputElement.addEventListener('input', function(e) {
+            let val = e.target.value;
+            const esNegativo = permitirNegativo && val.startsWith('-');
+            val = val.replace(/[^0-9,]/g, '');
+            const partes = val.split(',');
+            if (partes.length > 2) val = partes[0] + ',' + partes.slice(1).join('');
+            if (esNegativo) val = '-' + val;
+            e.target.value = val;
+        });
+    }
 
     // ── FINCAS ───────────────────────────────────────────────────────
     function actualizarFincas() {
         const especie = especieSelect.value;
         fincaSelect.innerHTML = '<option value="">-- SELECCIONE LOCALIDAD --</option>';
         localidadHidden.value = "";
-
         if (!especie) return;
-
         const fincas = obtenerFincasPorEspecie(especie);
         fincas.forEach(function(f) {
             const opt = document.createElement('option');
@@ -454,7 +489,6 @@
             opt.textContent = f;
             fincaSelect.appendChild(opt);
         });
-
         if (fincas.length === 1) {
             fincaSelect.value = fincas[0];
             localidadHidden.value = fincas[0];
@@ -477,12 +511,12 @@
 
     // ── PRODUCTOS DINAMICOS ──────────────────────────────────────────
     function agregarFilaProducto(productoSeleccionado, dosisNumero, unidadSeleccionada) {
-        productoSeleccionado  = productoSeleccionado  || "";
-        dosisNumero           = dosisNumero           || "";
-        unidadSeleccionada    = unidadSeleccionada    || "kg";
+        productoSeleccionado = productoSeleccionado || "";
+        dosisNumero          = dosisNumero          || "";
+        unidadSeleccionada   = unidadSeleccionada   || "kg";
 
-        const filaId   = 'fila_' + Date.now() + '_' + filaCounter++;
-        const divFila  = document.createElement('div');
+        const filaId  = 'fila_' + Date.now() + '_' + filaCounter++;
+        const divFila = document.createElement('div');
         divFila.className = 'producto-fila';
         divFila.id = filaId;
 
@@ -541,54 +575,46 @@
         productosListDiv.appendChild(divFila);
     }
 
-    function obtenerProductosConcatenados() {
+    // ── OBTENER LISTA DE PRODUCTOS (array, no concatenado) ───────────
+    function obtenerListaProductos() {
         const filas = document.querySelectorAll('#productosList .producto-fila');
-        const productos = [];
-        const dosis = [];
+        const lista = [];
         filas.forEach(function(fila) {
-            const inputProd   = fila.querySelector('.producto-input');
-            const dosisNum    = fila.querySelector('.dosis-numero');
-            const selectUnid  = fila.querySelector('.dosis-unidad');
+            const inputProd  = fila.querySelector('.producto-input');
+            const dosisNum   = fila.querySelector('.dosis-numero');
+            const selectUnid = fila.querySelector('.dosis-unidad');
             if (inputProd && inputProd.value.trim() && dosisNum && dosisNum.value.trim()) {
-                productos.push(inputProd.value.trim().toUpperCase());
-                dosis.push(dosisNum.value.trim() + ' ' + selectUnid.value);
+                lista.push({
+                    producto: inputProd.value.trim().toUpperCase(),
+                    dosis:    dosisNum.value.trim() + ' ' + selectUnid.value
+                });
             }
         });
-        return { productos: productos.join('; '), dosis: dosis.join('; ') };
+        return lista;
     }
 
-    // ── ENVIO A GOOGLE SHEETS ────────────────────────────────────────
-    async function enviarGoogleSheets(fila) {
+    // ── ENVIO A GOOGLE SHEETS (una fila) ────────────────────────────
+    async function enviarFila(fila) {
         try {
             const params = new URLSearchParams();
             for (const [key, value] of Object.entries(fila)) {
                 params.append(key, value);
             }
-
             const url = GOOGLE_SCRIPT_URL + "?" + params.toString();
             const response = await fetch(url, { method: 'GET' });
-
-            if (!response.ok) {
-                return { ok: false, msg: "Error HTTP: " + response.status };
-            }
+            if (!response.ok) return { ok: false, msg: "Error HTTP: " + response.status };
 
             const texto = await response.text();
-
             let data;
             try {
                 data = JSON.parse(texto);
-            } catch(parseErr) {
-                // Si no es JSON válido pero el fetch fue exitoso, asumir éxito
-                console.warn("Respuesta no JSON:", texto);
-                return { ok: true };
+            } catch(e) {
+                return { ok: true }; // Respuesta no-JSON pero fetch exitoso
             }
-
             return data.resultado === "exito"
                 ? { ok: true }
                 : { ok: false, msg: data.mensaje || "Error desconocido" };
-
         } catch (e) {
-            console.error("Error al enviar:", e);
             return { ok: false, msg: e.message };
         }
     }
@@ -598,9 +624,7 @@
         mensajeDiv.textContent = texto;
         mensajeDiv.className = 'mensaje-estado ' + tipo;
         mensajeDiv.style.display = 'block';
-        setTimeout(function() {
-            mensajeDiv.style.display = 'none';
-        }, 4500);
+        setTimeout(function() { mensajeDiv.style.display = 'none'; }, 4500);
     }
 
     // ── LIMPIAR ──────────────────────────────────────────────────────
@@ -629,6 +653,7 @@
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         mensajeDiv.style.display = 'none';
+        progresoDiv.style.display = 'none';
 
         const especie = especieSelect.value;
         if (!especie) return mostrarMensaje("SELECCIONE UNA ESPECIE.", "error");
@@ -652,17 +677,16 @@
         const tipoAplicacion = tipoProductoSelect.value;
         if (!tipoAplicacion) return mostrarMensaje("SELECCIONE UN TIPO DE APLICACION.", "error");
 
-        // Validaciones numericas
+        // Validaciones numéricas ambientales
         const campos = [
-            { id: 'ceClimatico',  nombre: 'C.E.',         val: ceClimatico.value.trim() },
-            { id: 'ph',           nombre: 'P.H.',          val: ph.value.trim() },
-            { id: 'joules',       nombre: 'JOULES',        val: joules.value.trim() },
-            { id: 'm3Total',      nombre: 'M3 TOTAL',      val: m3Total.value.trim() },
-            { id: 'tempMin',      nombre: 'TEMP MINIMA',   val: tempMin.value.trim() },
-            { id: 'tempMax',      nombre: 'TEMP MAXIMA',   val: tempMax.value.trim() },
-            { id: 'pluviosidad',  nombre: 'PLUVIOSIDAD',   val: pluviosidad.value.trim() }
+            { id: 'ceClimatico', nombre: 'C.E.',       val: ceClimatico.value.trim() },
+            { id: 'ph',          nombre: 'P.H.',        val: ph.value.trim() },
+            { id: 'joules',      nombre: 'JOULES',      val: joules.value.trim() },
+            { id: 'm3Total',     nombre: 'M3 TOTAL',    val: m3Total.value.trim() },
+            { id: 'tempMin',     nombre: 'TEMP MINIMA', val: tempMin.value.trim() },
+            { id: 'tempMax',     nombre: 'TEMP MAXIMA', val: tempMax.value.trim() },
+            { id: 'pluviosidad', nombre: 'PLUVIOSIDAD', val: pluviosidad.value.trim() }
         ];
-
         for (const campo of campos) {
             if (!campo.val) return mostrarMensaje("INGRESE " + campo.nombre + ".", "error");
             const valParaValidar = campo.id === 'tempMin' ? campo.val.replace('-', '') : campo.val;
@@ -671,28 +695,8 @@
             }
         }
 
-        // Productos
-        let nombreProducto = "";
-        let dosisProducto  = "";
-
-        if (tipoAplicacion === "OTRO_PRODUCTO") {
-            const productosData = obtenerProductosConcatenados();
-            if (!productosData.productos) {
-                return mostrarMensaje("AGREGUE AL MENOS UN PRODUCTO CON SU DOSIS.", "error");
-            }
-            nombreProducto = productosData.productos;
-            dosisProducto  = productosData.dosis;
-        } else {
-            const etiquetas = {
-                "FORMULA_FERTILIZACION": "FORMULA FERTILIZACION",
-                "NO_SE_RIEGA":           "NO SE RIEGA",
-                "AGUA_ACIDA":            "AGUA ACIDA"
-            };
-            nombreProducto = etiquetas[tipoAplicacion] || tipoAplicacion;
-            dosisProducto  = "";
-        }
-
-        const fila = {
+        // ── BASE común para todas las filas ──────────────────────────
+        const filaBase = {
             timestamp:       new Date().toLocaleString("es-EC"),
             especie:         especie,
             localidad:       localidad,
@@ -705,21 +709,72 @@
             m3_total:        m3Total.value.trim(),
             temp_min:        tempMin.value.trim(),
             temp_max:        tempMax.value.trim(),
-            pluviosidad_mm:  pluviosidad.value.trim(),
-            producto:        nombreProducto,
-            dosis:           dosisProducto
+            pluviosidad_mm:  pluviosidad.value.trim()
         };
 
         btnSubmit.disabled = true;
         btnSubmit.textContent = "GUARDANDO...";
 
-        const resultado = await enviarGoogleSheets(fila);
+        // ── OTRO PRODUCTO: una fila por producto ─────────────────────
+        if (tipoAplicacion === "OTRO_PRODUCTO") {
+            const listaProductos = obtenerListaProductos();
+            if (listaProductos.length === 0) {
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "GUARDAR";
+                return mostrarMensaje("AGREGUE AL MENOS UN PRODUCTO CON SU DOSIS.", "error");
+            }
 
-        if (resultado.ok) {
-            mostrarMensaje("DATOS ENVIADOS CORRECTAMENTE", "success");
-            limpiarFormulario();
+            progresoDiv.style.display = 'block';
+            let errores = 0;
+
+            for (let i = 0; i < listaProductos.length; i++) {
+                progresoDiv.textContent = "ENVIANDO " + "...";
+                const fila = Object.assign({}, filaBase, {
+                    producto: listaProductos[i].producto,
+                    dosis:    listaProductos[i].dosis
+                });
+                const resultado = await enviarFila(fila);
+                if (!resultado.ok) {
+                    errores++;
+                    console.error("Error en producto " + listaProductos[i].producto + ":", resultado.msg);
+                }
+            }
+
+            progresoDiv.style.display = 'none';
+
+            if (errores === 0) {
+                mostrarMensaje(
+                    listaProductos.length > 1
+                        ? " DATOS GUARDADOS CORRECTAMENTE"
+                        : "DATOS ENVIADOS CORRECTAMENTE",
+                    "success"
+                );
+                limpiarFormulario();
+            } else {
+                mostrarMensaje(
+                    errores + " DE " + listaProductos.length + " FILAS CON ERROR. Revise la conexión.",
+                    "error"
+                );
+            }
+
+        // ── OTROS TIPOS: una sola fila ────────────────────────────────
         } else {
-            mostrarMensaje("ERROR: " + resultado.msg, "error");
+            const etiquetas = {
+                "FORMULA_FERTILIZACION": "FORMULA FERTILIZACION",
+                "NO_SE_RIEGA":           "NO SE RIEGA",
+                "AGUA_ACIDA":            "AGUA ACIDA"
+            };
+            const fila = Object.assign({}, filaBase, {
+                producto: etiquetas[tipoAplicacion] || tipoAplicacion,
+                dosis:    ""
+            });
+            const resultado = await enviarFila(fila);
+            if (resultado.ok) {
+                mostrarMensaje("DATOS ENVIADOS CORRECTAMENTE", "success");
+                limpiarFormulario();
+            } else {
+                mostrarMensaje("ERROR: " + resultado.msg, "error");
+            }
         }
 
         btnSubmit.disabled = false;
